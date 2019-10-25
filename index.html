@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>口红色彩可视化</title>
+    <script src="https://www.f2td.com/libs/jquery/jquery-2.2.0.min.js"></script>
+    <script src="echarts.min.js"></script>
+    <style>
+      body {
+        padding: 0;
+        margin: 0;
+      }
+      .mainContainer {
+        background: #fff;
+        margin: 30px 10%;
+        display: block;
+      }
+      .chart {
+        width: 70%;
+        float: left;
+        height: 80vh;
+      }
+
+      .legend {
+        float: left;
+        width: 30%;
+      }
+
+      .legend ul,
+      .legend ul li {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+
+      .legend ul li a {
+        text-decoration: none;
+        text-align: center;
+        font-size: 20px;
+        color: brown;
+        padding: 15px 20px;
+        display: block;
+        border: 2px solid brown;
+        margin-bottom: 15px;
+        border-radius: 1px;
+      }
+
+      .legend p {
+        margin-bottom: 15px;
+      }
+      .legend .title {
+        font-size: 26px;
+        font-weight: bold;
+      }
+
+      .legend .sub-title {
+        font-size: 22px;
+      }
+
+      .legend .defaultTxt {
+        font-size: 30px;
+        color: #d62352;
+        font-weight: bold;
+      }
+      @media only screen and (max-width: 900px) {
+        .chart {
+          width: 100%;
+          float: none;
+          height: 80vh;
+        }
+        .legend {
+          float: left;
+          width: 100%;
+          margin-bottom: 30px;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="mainContainer">
+      <div id="main" class="chart"></div>
+      <div id="legend" class="legend">
+        <ul>
+          <p class="defaultTxt">今天买口红了吗？</p>
+        </ul>
+      </div>
+    </div>
+    <script type="text/javascript">
+      function compareArrByKey(propertyName, key) {
+        return function(object1, object2) {
+          let value1 = object1[propertyName][key];
+          let value2 = object2[propertyName][key];
+          if (value1 < value2) {
+            return -1;
+          } else if (value1 > value2) {
+            return 1;
+          } else {
+            return 0;
+          }
+        };
+      }
+      var sunburstChart = echarts.init(document.getElementById("main"));
+      let option = {
+        title: {
+          text: "口红色彩可视化",
+          subtext: "你说的红是什么红？——BY Hanna",
+          textStyle: {
+            fontSize: 28,
+            color: "#D62352"
+          },
+          left: 0,
+          textAlign: "left",
+          sublink: "https://www.f2td.com/demos/lipstick/"
+        },
+        series: {
+          type: "sunburst",
+          highlightPolicy: "ancestor",
+          data: [],
+          radius: [0, "95%"],
+          sort: null,
+          levels: [
+            {},
+            {
+              r0: "10%",
+              r: "30%",
+              itemStyle: {
+                borderWidth: 0
+              },
+              label: {
+                rotate: "tangential"
+              }
+            },
+            {
+              r0: "30%",
+              r: "50%",
+              label: {
+                align: "right"
+              }
+            },
+            {
+              r0: "50%",
+              r: "70%",
+              label: {
+                align: "right",
+                position: "outside",
+                padding: 0,
+                silent: false
+              },
+              itemStyle: {
+                borderWidth: 0
+              }
+            }
+          ]
+        }
+      };
+
+      sunburstChart.setOption(option);
+      sunburstChart.showLoading();
+      $.get("lipstick.json").done(function(data) {
+        let dataArr = data.brands.map(v => {
+          let children = v.series.map(s => {
+            let subChildren = s.lipsticks.map(l => {
+              return {
+                name: l.name,
+                no: l.id,
+                itemStyle: { color: l.color },
+                value: 1
+              };
+            });
+            subChildren = subChildren.filter(item => item.name !== "");
+            return {
+              name: s.name,
+              itemStyle: { color: s.lipsticks[0].color },
+              children: subChildren
+            };
+          });
+          return {
+            name: v.name,
+            itemStyle: { color: v.series[0].lipsticks[0].color },
+            children
+          };
+        });
+
+        sunburstChart.hideLoading();
+        sunburstChart.setOption({
+          series: [
+            {
+              data: dataArr
+            }
+          ]
+        });
+      });
+
+      sunburstChart.on("mouseover", function(params) {
+        let firstName = "",
+          secondName = "",
+          thirdName = "",
+          color = "",
+          number = "",
+          currentColor = "";
+        if (params.treePathInfo.length > 1) {
+          firstName = params.treePathInfo[1].name;
+        }
+        if (params.treePathInfo.length > 2) {
+          secondName = params.treePathInfo[2].name;
+        }
+        if (params.treePathInfo.length > 3) {
+          thirdName = " - " + params.treePathInfo[3].name;
+        }
+
+        $("#legend ul").empty();
+        var str = "";
+        $(params.data).each(function(i) {
+          if (params.treePathInfo.length > 1) {
+            currentColor = this.itemStyle.color;
+          }
+          if (params.treePathInfo.length > 3) {
+            number = this.no || "";
+            color =
+              "<a href='javascript:;' style='color:#fff;background:" +
+              currentColor +
+              ";border-color:" +
+              currentColor +
+              "'>" +
+              "#" +
+              number +
+              thirdName +
+              "</a>";
+          }
+          str +=
+            "<li><p class='title' style='color:" +
+            currentColor +
+            "'>" +
+            firstName +
+            "</p><p class='sub-title' style='color:" +
+            currentColor +
+            "'>" +
+            secondName +
+            "</p>" +
+            color +
+            "</li>";
+        });
+        var a = $(str);
+        a.appendTo($("#legend ul"));
+      });
+
+      window.onresize = function() {
+        setTimeout(function() {
+          sunburstChart.resize();
+        }, 10);
+      };
+    </script>
+  </body>
+</html>
